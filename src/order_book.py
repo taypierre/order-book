@@ -117,6 +117,9 @@ class OrderBook:
         return remaining
 
     def _update_top_of_book(self) -> None:
+            """
+            Updates the best bid and best ask prices based on the current state of the order book
+            """
             if len(self.bids) > 0:
                 self.best_bid = max(self.bids.keys())
             else:
@@ -126,3 +129,70 @@ class OrderBook:
                 self.best_ask = min(self.asks.keys())
             else:
                 self.best_ask = float('inf')
+                
+                
+    def process_order(self, order_id: str, side: Side, price: float, quantity: int):
+        """
+        The MAIN entry point for new orders, attempts to match first 
+        """
+        # Try to match the incoming order against existing liquidity
+        remaining_qty = self._match_order(side, price, quantity)
+        
+        # If the order didn't completely fill, it becomes a resting order
+        if remaining_qty > 0:
+            self._add_to_book(order_id, side, price, remaining_qty)
+            
+    def _add_to_book(self, order_id: int, side: Side, price: float, quantity: int, timestamp: int) -> None:
+        """
+        Places an unfilled order into the book to rest
+        """
+        # Create the Order and OrderNode
+        new_order = Order(order_id, side, price, quantity, timestamp)
+        new_node = OrderNode(new_order)
+        
+        target_book = self.bids if side == Side.BUY else self.asks
+        
+        # If this is the first time seeing this price, create new PriceLevel
+        if price not in target_book:
+            target_book[price] = PriceLevel(price)
+            
+        # Add the node to the back of the queue at this price
+        target_book[price].append(new_node)
+        
+        # Store the NODE in global map 
+        self.order_map[order_id] = new_node
+        
+        # Update the best bid/ask
+        self._update_top_of_book()
+        
+    def cancel_order(self, order_id: int) -> bool:
+        """
+        Cancels an active resting order instantly using the global map
+        Returns True/False
+        """
+        # Look up the order instantly
+        if order_id not in self.order_map:
+            return False 
+
+        # Get exact node and its data
+        node_to_cancel = self.order_map[order_id]
+        order = node_to_cancel.order
+
+        # Find which book and price level
+        target_book = self.bids if order.side == Side.BUY else self.asks
+        price_level = target_book[order.price]
+
+        # Remove from linked list
+        price_level.remove(node_to_cancel)
+
+        # Delete it from global map
+        del self.order_map[order_id]
+
+        # If that was the very last order at that price, delete the price level
+        if price_level.head is None:
+            del target_book[order.price]
+
+        # Recalculate top of book
+        self._update_top_of_book()
+
+        return True
