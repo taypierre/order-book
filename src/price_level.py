@@ -1,5 +1,5 @@
 from typing import Optional
-from .order import Order
+from order import Order
 
 class OrderNode:
     __slots__ = ['order', 'next_node', 'prev_node']
