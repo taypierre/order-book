@@ -307,3 +307,9 @@ if __name__ == "__main__":
         for trade in ob.trade_log:
             print(f"Maker ID: {trade.maker_order_id: <4} | Taker ID: {trade.taker_order_id: <4} | "
                   f"Exec Price: ${trade.price:.2f} | Traded Qty: {trade.quantity}")
+    
+    print()
+    print("-->  Canceling Order ID 201 (Buy Order)...")
+    ob.cancel_order(201)
+    
+    print_book(ob)
